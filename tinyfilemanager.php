@@ -730,122 +730,124 @@ if (isset($_POST['newfilename'], $_POST['newfile'], $_POST['token']) && !FM_READ
     fm_redirect(FM_SELF_URL . '?p=' . urlencode($FM_PATH));
 }
 
-// Copy folder / file
+// 复制文件夹/文件
 if (isset($_GET['copy'], $_GET['finish']) && !FM_READONLY) {
-    // from
+    // 源路径
     $copy = urldecode($_GET['copy']);
     $copy = fm_clean_path($copy);
-    // empty path
+    // 空路径检查
     if ($copy == '') {
-        fm_set_msg(lng('Source path not defined'), 'error');
+        fm_set_msg(lng('未定义源路径'), 'error');
         $FM_PATH = FM_PATH;
         fm_redirect(FM_SELF_URL . '?p=' . urlencode($FM_PATH));
     }
-    // abs path from
+    // 源文件的绝对路径
     $from = FM_ROOT_PATH . '/' . $copy;
-    // abs path to
+    // 目标文件的绝对路径
     $dest = FM_ROOT_PATH;
     if (FM_PATH != '') {
         $dest .= '/' . FM_PATH;
     }
     $dest .= '/' . basename($from);
-    // move?
+    // 是否为移动操作？
     $move = isset($_GET['move']);
     $move = fm_clean_path(urldecode($move));
-    // copy/move/duplicate
+    // 复制/移动/复制副本
     if ($from != $dest) {
         $msg_from = trim(FM_PATH . '/' . basename($from), '/');
-        if ($move) { // Move and to != from so just perform move
+        if ($move) { // 移动操作，且目标路径与源路径不同，执行移动
             $rename = fm_rename($from, $dest);
             if ($rename) {
-                fm_set_msg(sprintf(lng('Moved from') . ' <b>%s</b> ' . lng('to') . ' <b>%s</b>', fm_enc($copy), fm_enc($msg_from)));
+                fm_set_msg(sprintf(lng('从') . ' <b>%s</b> ' . lng('移动到') . ' <b>%s</b>', fm_enc($copy), fm_enc($msg_from)));
             } elseif ($rename === null) {
-                fm_set_msg(lng('File or folder with this path already exists'), 'alert');
+                fm_set_msg(lng('此路径下已存在同名文件或文件夹'), 'alert');
             } else {
-                fm_set_msg(sprintf(lng('Error while moving from') . ' <b>%s</b> ' . lng('to') . ' <b>%s</b>', fm_enc($copy), fm_enc($msg_from)), 'error');
+                fm_set_msg(sprintf(lng('从') . ' <b>%s</b> ' . lng('移动到') . ' <b>%s</b> ' . lng('时出错'), fm_enc($copy), fm_enc($msg_from)), 'error');
             }
-        } else { // Not move and to != from so copy with original name
+        } else { // 非移动操作，且目标路径与源路径不同，执行复制（保留原文件名）
             if (fm_rcopy($from, $dest)) {
-                fm_set_msg(sprintf(lng('Copied from') . ' <b>%s</b> ' . lng('to') . ' <b>%s</b>', fm_enc($copy), fm_enc($msg_from)));
+                fm_set_msg(sprintf(lng('从') . ' <b>%s</b> ' . lng('复制到') . ' <b>%s</b>', fm_enc($copy), fm_enc($msg_from)));
             } else {
-                fm_set_msg(sprintf(lng('Error while copying from') . ' <b>%s</b> ' . lng('to') . ' <b>%s</b>', fm_enc($copy), fm_enc($msg_from)), 'error');
+                fm_set_msg(sprintf(lng('从') . ' <b>%s</b> ' . lng('复制到') . ' <b>%s</b> ' . lng('时出错'), fm_enc($copy), fm_enc($msg_from)), 'error');
             }
         }
     } else {
-        if (!$move) { //Not move and to = from so duplicate
+        if (!$move) { // 非移动操作，且目标路径与源路径相同，执行复制副本
             $msg_from = trim(FM_PATH . '/' . basename($from), '/');
             $fn_parts = pathinfo($from);
             $extension_suffix = '';
             if (!is_dir($from)) {
                 $extension_suffix = '.' . $fn_parts['extension'];
             }
-            //Create new name for duplicate
+            // 为副本创建新名称
             $fn_duplicate = $fn_parts['dirname'] . '/' . $fn_parts['filename'] . '-' . date('YmdHis') . $extension_suffix;
             $loop_count = 0;
             $max_loop = 1000;
-            // Check if a file with the duplicate name already exists, if so, make new name (edge case...)
+            // 检查副本名称是否已存在，若存在则生成新名称（边界情况...）
             while (file_exists($fn_duplicate) & $loop_count < $max_loop) {
                 $fn_parts = pathinfo($fn_duplicate);
                 $fn_duplicate = $fn_parts['dirname'] . '/' . $fn_parts['filename'] . '-copy' . $extension_suffix;
                 $loop_count++;
             }
             if (fm_rcopy($from, $fn_duplicate, False)) {
-                fm_set_msg(sprintf('Copied from <b>%s</b> to <b>%s</b>', fm_enc($copy), fm_enc($fn_duplicate)));
+                fm_set_msg(sprintf('从 <b>%s</b> 复制到 <b>%s</b>', fm_enc($copy), fm_enc($fn_duplicate)));
             } else {
-                fm_set_msg(sprintf('Error while copying from <b>%s</b> to <b>%s</b>', fm_enc($copy), fm_enc($fn_duplicate)), 'error');
+                fm_set_msg(sprintf('从 <b>%s</b> 复制到 <b>%s</b> 时出错', fm_enc($copy), fm_enc($fn_duplicate)), 'error');
             }
         } else {
-            fm_set_msg(lng('Paths must be not equal'), 'alert');
+            fm_set_msg(lng('源路径和目标路径不能相同'), 'alert');
         }
     }
     $FM_PATH = FM_PATH;
     fm_redirect(FM_SELF_URL . '?p=' . urlencode($FM_PATH));
 }
 
-// Mass copy files/ folders
+// 批量复制文件/文件夹
 if (isset($_POST['file'], $_POST['copy_to'], $_POST['finish'], $_POST['token']) && !FM_READONLY) {
 
     if (!verifyToken($_POST['token'])) {
-        fm_set_msg(lng('Invalid Token.'), 'error');
+        fm_set_msg(lng('令牌无效'), 'error');
     }
 
-    // from
+    // 源路径
     $path = FM_ROOT_PATH;
     if (FM_PATH != '') {
         $path .= '/' . FM_PATH;
     }
-    // to
+    // 目标路径
     $copy_to_path = FM_ROOT_PATH;
     $copy_to = fm_clean_path($_POST['copy_to']);
     if ($copy_to != '') {
         $copy_to_path .= '/' . $copy_to;
     }
+    // 检查源路径和目标路径是否相同
     if ($path == $copy_to_path) {
-        fm_set_msg(lng('Paths must be not equal'), 'alert');
+        fm_set_msg(lng('路径不能相同'), 'alert');
         $FM_PATH = FM_PATH;
         fm_redirect(FM_SELF_URL . '?p=' . urlencode($FM_PATH));
     }
+    // 检查目标文件夹是否存在，不存在则创建
     if (!is_dir($copy_to_path)) {
         if (!fm_mkdir($copy_to_path, true)) {
-            fm_set_msg('Unable to create destination folder', 'error');
+            fm_set_msg('无法创建目标文件夹', 'error');
             $FM_PATH = FM_PATH;
             fm_redirect(FM_SELF_URL . '?p=' . urlencode($FM_PATH));
         }
     }
-    // move?
+    // 是否为移动操作？
     $move = isset($_POST['move']);
-    // copy/move
+    // 复制/移动操作
     $errors = 0;
     $files = $_POST['file'];
     if (is_array($files) && count($files)) {
         foreach ($files as $f) {
             if ($f != '') {
                 $f = fm_clean_path($f);
-                // abs path from
+                // 源文件的绝对路径
                 $from = $path . '/' . $f;
-                // abs path to
+                // 目标文件的绝对路径
                 $dest = $copy_to_path . '/' . $f;
-                // do
+                // 执行操作
                 if ($move) {
                     $rename = fm_rename($from, $dest);
                     if ($rename === false) {
@@ -858,90 +860,91 @@ if (isset($_POST['file'], $_POST['copy_to'], $_POST['finish'], $_POST['token']) 
                 }
             }
         }
+        // 操作结果反馈
         if ($errors == 0) {
-            $msg = $move ? 'Selected files and folders moved' : 'Selected files and folders copied';
+            $msg = $move ? '所选文件和文件夹已移动' : '所选文件和文件夹已复制';
             fm_set_msg($msg);
         } else {
-            $msg = $move ? 'Error while moving items' : 'Error while copying items';
+            $msg = $move ? '移动项目时出错' : '复制项目时出错';
             fm_set_msg($msg, 'error');
         }
     } else {
-        fm_set_msg(lng('Nothing selected'), 'alert');
+        fm_set_msg(lng('未选择任何项目'), 'alert');
     }
     $FM_PATH = FM_PATH;
     fm_redirect(FM_SELF_URL . '?p=' . urlencode($FM_PATH));
 }
 
-// Rename
+// 重命名
 if (isset($_POST['rename_from'], $_POST['rename_to'], $_POST['token']) && !FM_READONLY) {
     if (!verifyToken($_POST['token'])) {
-        fm_set_msg("Invalid Token.", 'error');
+        fm_set_msg("令牌无效", 'error');
     }
-    // old name
+    // 旧名称
     $old = urldecode($_POST['rename_from']);
     $old = fm_clean_path($old);
     $old = str_replace('/', '', $old);
-    // new name
+    // 新名称
     $new = urldecode($_POST['rename_to']);
     $new = fm_clean_path(strip_tags($new));
     $new = str_replace('/', '', $new);
-    // path
+    // 当前路径
     $path = FM_ROOT_PATH;
     if (FM_PATH != '') {
         $path .= '/' . FM_PATH;
     }
-    // rename
+    // 执行重命名
     if (fm_isvalid_filename($new) && $old != '' && $new != '') {
         if (fm_rename($path . '/' . $old, $path . '/' . $new)) {
-            fm_set_msg(sprintf(lng('Renamed from') . ' <b>%s</b> ' . lng('to') . ' <b>%s</b>', fm_enc($old), fm_enc($new)));
+            fm_set_msg(sprintf(lng('已从') . ' <b>%s</b> ' . lng('重命名为') . ' <b>%s</b>', fm_enc($old), fm_enc($new)));
         } else {
-            fm_set_msg(sprintf(lng('Error while renaming from') . ' <b>%s</b> ' . lng('to') . ' <b>%s</b>', fm_enc($old), fm_enc($new)), 'error');
+            fm_set_msg(sprintf(lng('从') . ' <b>%s</b> ' . lng('重命名为') . ' <b>%s</b> ' . lng('时出错'), fm_enc($old), fm_enc($new)), 'error');
         }
     } else {
-        fm_set_msg(lng('Invalid characters in file name'), 'error');
+        fm_set_msg(lng('文件名包含无效字符'), 'error');
     }
     $FM_PATH = FM_PATH;
     fm_redirect(FM_SELF_URL . '?p=' . urlencode($FM_PATH));
 }
 
-// Download
+// 下载
 if (isset($_GET['dl'], $_POST['token'])) {
-    // Verify the token to ensure it's valid
+    // 验证令牌以确保其有效
     if (!verifyToken($_POST['token'])) {
         fm_set_msg("Invalid Token.", 'error');
         exit;
     }
 
-    // Clean the download file path
+    // 清理下载文件路径
     $dl = urldecode($_GET['dl']);
     $dl = fm_clean_path($dl);
-    $dl = str_replace('/', '', $dl); // Prevent directory traversal attacks
+    $dl = str_replace('/', '', $dl); // 防止目录遍历攻击
 
-    // Define the file path
+    // 定义文件路径
     $path = FM_ROOT_PATH;
     if (FM_PATH != '') {
         $path .= '/' . FM_PATH;
     }
 
-    // Check if the file exists and is valid
+    // 检查文件是否存在且有效
     if ($dl != '' && is_file($path . '/' . $dl)) {
-        // Close the session to prevent session locking
+        // 关闭会话以防止会话锁定
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_write_close();
         }
 
-        // Call the download function
-        fm_download_file($path . '/' . $dl, $dl, 1024); // Download with a buffer size of 1024 bytes
+        // 调用下载函数
+        fm_download_file($path . '/' . $dl, $dl, 1024); // 以1024字节的缓冲区大小下载
         exit;
     } else {
-        // Handle the case where the file is not found
+        // 处理文件未找到的情况
         fm_set_msg(lng('File not found'), 'error');
         $FM_PATH = FM_PATH;
         fm_redirect(FM_SELF_URL . '?p=' . urlencode($FM_PATH));
     }
 }
 
-// Upload
+// 上传
 if (!empty($_FILES) && !FM_READONLY) {
     if (isset($_POST['token'])) {
         if (!verifyToken($_POST['token'])) {
@@ -1006,7 +1009,7 @@ if (!empty($_FILES) && !FM_READONLY) {
                     $in = @fopen($tmp_name, "rb");
                     if ($in) {
                         if (PHP_VERSION_ID < 80009) {
-                            // workaround https://bugs.php.net/bug.php?id=81145
+                            // 兼容处理 https://bugs.php.net/bug.php?id=81145
                             do {
                                 for (;;) {
                                     $buff = fread($in, 4096);
@@ -1026,7 +1029,7 @@ if (!empty($_FILES) && !FM_READONLY) {
                     } else {
                         $response = array(
                             'status'    => 'error',
-                            'info' => "failed to open output stream",
+                            'info' => "无法打开输出流",
                             'errorDetails' => error_get_last()
                         );
                     }
@@ -1041,7 +1044,7 @@ if (!empty($_FILES) && !FM_READONLY) {
                 } else {
                     $response = array(
                         'status'    => 'error',
-                        'info' => "failed to open output stream"
+                        'info' => "无法打开输出流"
                     );
                 }
 
@@ -1055,7 +1058,7 @@ if (!empty($_FILES) && !FM_READONLY) {
                     rename("{$fullPath}.part", $fullPathTarget);
                 }
             } else if (move_uploaded_file($tmp_name, $fullPath)) {
-                // Be sure that the file has been uploaded
+                // 确认文件已上传成功
                 if (file_exists($fullPath)) {
                     $response = array(
                         'status'    => 'success',
@@ -1070,17 +1073,17 @@ if (!empty($_FILES) && !FM_READONLY) {
             } else {
                 $response = array(
                     'status'    => 'error',
-                    'info'      => "Error while uploading files. Uploaded files $uploads",
+                    'info'      => "上传文件时出错。已上传文件数: $uploads",
                 );
             }
         }
     } else {
         $response = array(
             'status' => 'error',
-            'info'   => 'The specified folder for upload isn\'t writeable.'
+            'info'   => '指定的上传文件夹不可写。'
         );
     }
-    // Return the response
+    // 返回响应结果
     echo json_encode($response);
     exit();
 }
