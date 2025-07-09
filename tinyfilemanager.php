@@ -459,55 +459,55 @@ unset($p, $use_auth, $iconv_input_encoding, $use_highlightjs, $highlightjs_style
 
 /*************************** 操作 ***************************/
 
-// Handle all AJAX Request
+// 处理所有 AJAX 请求
 if ((isset($_SESSION[FM_SESSION_ID]['logged'], $auth_users[$_SESSION[FM_SESSION_ID]['logged']]) || !FM_USE_AUTH) && isset($_POST['ajax'], $_POST['token']) && !FM_READONLY) {
     if (!verifyToken($_POST['token'])) {
         header('HTTP/1.0 401 Unauthorized');
         die("Invalid Token.");
     }
 
-    //search : get list of files from the current folder
-    if (isset($_POST['type']) && $_POST['type'] == "search") {
-        $dir = $_POST['path'] == "." ? '' : $_POST['path'];
-        $response = scan(fm_clean_path($dir), $_POST['content']);
-        echo json_encode($response);
-        exit();
+    // 搜索：从当前文件夹获取文件列表
+if (isset($_POST['type']) && $_POST['type'] == "search") {
+    $dir = $_POST['path'] == "." ? '' : $_POST['path'];
+    $response = scan(fm_clean_path($dir), $_POST['content']);
+    echo json_encode($response);
+    exit();
+}
+
+// 保存编辑器文件
+if (isset($_POST['type']) && $_POST['type'] == "save") {
+    // 获取当前路径
+    $path = FM_ROOT_PATH;
+    if (FM_PATH != '') {
+        $path .= '/' . FM_PATH;
     }
-
-    // save editor file
-    if (isset($_POST['type']) && $_POST['type'] == "save") {
-        // get current path
-        $path = FM_ROOT_PATH;
-        if (FM_PATH != '') {
-            $path .= '/' . FM_PATH;
-        }
-        // check path
-        if (!is_dir($path)) {
-            fm_redirect(FM_SELF_URL . '?p=');
-        }
-        $file = $_GET['edit'];
-        $file = fm_clean_path($file);
-        $file = str_replace('/', '', $file);
-        if ($file == '' || !is_file($path . '/' . $file)) {
-            fm_set_msg(lng('File not found'), 'error');
-            $FM_PATH = FM_PATH;
-            fm_redirect(FM_SELF_URL . '?p=' . urlencode($FM_PATH));
-        }
-        header('X-XSS-Protection:0');
-        $file_path = $path . '/' . $file;
-
-        $writedata = $_POST['content'];
-        $fd = fopen($file_path, "w");
-        $write_results = @fwrite($fd, $writedata);
-        fclose($fd);
-        if ($write_results === false) {
-            header("HTTP/1.1 500 Internal Server Error");
-            die("Could Not Write File! - Check Permissions / Ownership");
-        }
-        die(true);
+    // 检查路径
+    if (!is_dir($path)) {
+        fm_redirect(FM_SELF_URL . '?p=');
     }
+    $file = $_GET['edit'];
+    $file = fm_clean_path($file);
+    $file = str_replace('/', '', $file);
+    if ($file == '' || !is_file($path . '/' . $file)) {
+        fm_set_msg(lng('文件未找到'), 'error');
+        $FM_PATH = FM_PATH;
+        fm_redirect(FM_SELF_URL . '?p=' . urlencode($FM_PATH));
+    }
+    header('X-XSS-Protection:0');
+    $file_path = $path . '/' . $file;
 
-    // backup files
+    $writedata = $_POST['content'];
+    $fd = fopen($file_path, "w");
+    $write_results = @fwrite($fd, $writedata);
+    fclose($fd);
+    if ($write_results === false) {
+        header("HTTP/1.1 500 内部服务器错误");
+        die("无法写入文件！请检查权限 / 所有权");
+    }
+    die(true);
+}
+
+    // 备份文件
     if (isset($_POST['type']) && $_POST['type'] == "backup" && !empty($_POST['file'])) {
         $fileName = fm_clean_path($_POST['file']);
         $fullPath = FM_ROOT_PATH . '/';
@@ -520,19 +520,19 @@ if ((isset($_SESSION[FM_SESSION_ID]['logged'], $auth_users[$_SESSION[FM_SESSION_
         $fullyQualifiedFileName = $fullPath . $fileName;
         try {
             if (!file_exists($fullyQualifiedFileName)) {
-                throw new Exception("File {$fileName} not found");
+                throw new Exception("文件 {$fileName} 未找到");
             }
             if (copy($fullyQualifiedFileName, $fullPath . $newFileName)) {
-                echo "Backup {$newFileName} created";
+                echo "备份文件 {$newFileName} 已创建";
             } else {
-                throw new Exception("Could not copy file {$fileName}");
+                throw new Exception("无法复制文件 {$fileName}");
             }
         } catch (Exception $e) {
             echo $e->getMessage();
         }
     }
 
-    // Save Config
+    // 保存配置
     if (isset($_POST['type']) && $_POST['type'] == "settings") {
         global $cfg, $lang, $report_errors, $show_hidden_files, $lang_list, $hide_Cols, $theme;
         $newLng = $_POST['js-language'];
@@ -574,13 +574,13 @@ if ((isset($_SESSION[FM_SESSION_ID]['logged'], $auth_users[$_SESSION[FM_SESSION_
         echo true;
     }
 
-    // new password hash
+    // 新密码哈希
     if (isset($_POST['type']) && $_POST['type'] == "pwdhash") {
         $res = isset($_POST['inputPassword2']) && !empty($_POST['inputPassword2']) ? password_hash($_POST['inputPassword2'], PASSWORD_DEFAULT) : '';
         echo $res;
     }
 
-    //upload using url
+    //通过URL上传文件
     if (isset($_POST['type']) && $_POST['type'] == "upload" && !empty($_REQUEST["uploadurl"])) {
         $path = FM_ROOT_PATH;
         if (FM_PATH != '') {
@@ -601,13 +601,13 @@ if ((isset($_SESSION[FM_SESSION_ID]['logged'], $auth_users[$_SESSION[FM_SESSION_
 
         $url = !empty($_REQUEST["uploadurl"]) && preg_match("|^http(s)?://.+$|", stripslashes($_REQUEST["uploadurl"])) ? stripslashes($_REQUEST["uploadurl"]) : null;
 
-        //prevent 127.* domain and known ports
+        // 防止使用 127.* 域名和已知端口
         $domain = parse_url($url, PHP_URL_HOST);
         $port = parse_url($url, PHP_URL_PORT);
         $knownPorts = [22, 23, 25, 3306];
 
         if (preg_match("/^localhost$|^127(?:\.[0-9]+){0,2}\.[0-9]+$|^(?:0*\:)*?:?0*1$/i", $domain) || in_array($port, $knownPorts)) {
-            $err = array("message" => "URL is not allowed");
+            $err = array("message" => "URL 不被允许");
             event_callback(array("fail" => $err));
             exit();
         }
@@ -624,7 +624,7 @@ if ((isset($_SESSION[FM_SESSION_ID]['logged'], $auth_users[$_SESSION[FM_SESSION_
         $err = false;
 
         if (!$isFileAllowed) {
-            $err = array("message" => "File extension is not allowed");
+            $err = array("message" => "不允许的文件扩展名");
             event_callback(array("fail" => $err));
             exit();
         }
@@ -663,7 +663,7 @@ if ((isset($_SESSION[FM_SESSION_ID]['logged'], $auth_users[$_SESSION[FM_SESSION_
         } else {
             unlink($temp_file);
             if (!$err) {
-                $err = array("message" => "Invalid url parameter");
+                $err = array("message" => "无效的url参数");
             }
             event_callback(array("fail" => $err));
         }
@@ -671,7 +671,7 @@ if ((isset($_SESSION[FM_SESSION_ID]['logged'], $auth_users[$_SESSION[FM_SESSION_
     exit();
 }
 
-// Delete file / folder
+// 删除文件 / 文件夹
 if (isset($_GET['del'], $_POST['token']) && !FM_READONLY) {
     $del = str_replace('/', '', fm_clean_path($_GET['del']));
     if ($del != '' && $del != '..' && $del != '.' && verifyToken($_POST['token'])) {
@@ -681,20 +681,20 @@ if (isset($_GET['del'], $_POST['token']) && !FM_READONLY) {
         }
         $is_dir = is_dir($path . '/' . $del);
         if (fm_rdelete($path . '/' . $del)) {
-            $msg = $is_dir ? lng('Folder') . ' <b>%s</b> ' . lng('Deleted') : lng('File') . ' <b>%s</b> ' . lng('Deleted');
+            $msg = $is_dir ? lng('文件夹') . ' <b>%s</b> ' . lng('Deleted') : lng('File') . ' <b>%s</b> ' . lng('Deleted');
             fm_set_msg(sprintf($msg, fm_enc($del)));
         } else {
-            $msg = $is_dir ? lng('Folder') . ' <b>%s</b> ' . lng('not deleted') : lng('File') . ' <b>%s</b> ' . lng('not deleted');
+            $msg = $is_dir ? lng('文件夹') . ' <b>%s</b> ' . lng('not deleted') : lng('File') . ' <b>%s</b> ' . lng('not deleted');
             fm_set_msg(sprintf($msg, fm_enc($del)), 'error');
         }
     } else {
-        fm_set_msg(lng('Invalid file or folder name'), 'error');
+        fm_set_msg(lng('无效的文件或文件夹名称'), 'error');
     }
     $FM_PATH = FM_PATH;
     fm_redirect(FM_SELF_URL . '?p=' . urlencode($FM_PATH));
 }
 
-// Create a new file/folder
+// 创建新文件/文件夹
 if (isset($_POST['newfilename'], $_POST['newfile'], $_POST['token']) && !FM_READONLY) {
     $type = urldecode($_POST['newfile']);
     $new = str_replace('/', '', fm_clean_path(strip_tags($_POST['newfilename'])));
@@ -706,25 +706,25 @@ if (isset($_POST['newfilename'], $_POST['newfile'], $_POST['token']) && !FM_READ
         if ($type == "file") {
             if (!file_exists($path . '/' . $new)) {
                 if (fm_is_valid_ext($new)) {
-                    @fopen($path . '/' . $new, 'w') or die('Cannot open file:  ' . $new);
+                    @fopen($path . '/' . $new, 'w') or die('无法打开文件:  ' . $new);
                     fm_set_msg(sprintf(lng('File') . ' <b>%s</b> ' . lng('Created'), fm_enc($new)));
                 } else {
-                    fm_set_msg(lng('File extension is not allowed'), 'error');
+                    fm_set_msg(lng('文件扩展名不被允许'), 'error');
                 }
             } else {
-                fm_set_msg(sprintf(lng('File') . ' <b>%s</b> ' . lng('already exists'), fm_enc($new)), 'alert');
+                fm_set_msg(sprintf(lng('文件') . ' <b>%s</b> ' . lng('已存在'), fm_enc($new)), 'alert');
             }
         } else {
             if (fm_mkdir($path . '/' . $new, false) === true) {
-                fm_set_msg(sprintf(lng('Folder') . ' <b>%s</b> ' . lng('Created'), $new));
+                fm_set_msg(sprintf(lng('文件夹') . ' <b>%s</b> ' . lng('已创建'), $new));
             } elseif (fm_mkdir($path . '/' . $new, false) === $path . '/' . $new) {
-                fm_set_msg(sprintf(lng('Folder') . ' <b>%s</b> ' . lng('already exists'), fm_enc($new)), 'alert');
+                fm_set_msg(sprintf(lng('文件夹') . ' <b>%s</b> ' . lng('已存在'), fm_enc($new)), 'alert');
             } else {
-                fm_set_msg(sprintf(lng('Folder') . ' <b>%s</b> ' . lng('not created'), fm_enc($new)), 'error');
+                fm_set_msg(sprintf(lng('文件夹') . ' <b>%s</b> ' . lng('未创建'), fm_enc($new)), 'error');
             }
         }
     } else {
-        fm_set_msg(lng('Invalid characters in file or folder name'), 'error');
+        fm_set_msg(lng('文件或文件夹名称包含非法字符'), 'error');
     }
     $FM_PATH = FM_PATH;
     fm_redirect(FM_SELF_URL . '?p=' . urlencode($FM_PATH));
